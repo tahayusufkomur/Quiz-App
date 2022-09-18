@@ -20,6 +20,8 @@ class MainWindow(QMainWindow):
     def start_page(self):
         layout = QVBoxLayout()
 
+        self.change_information_label("", "", "")
+
         button = QPushButton("Add new questions")
         button.pressed.connect(self.question_adding_page)
         layout.addWidget(button)
@@ -47,9 +49,9 @@ class MainWindow(QMainWindow):
         label = QLabel("question: ")
         temp_layout.addWidget(label)
 
-        button = QLineEdit()
-        self.question_components.append(button)
-        temp_layout.addWidget(button)
+        editable_line = QLineEdit()
+        self.question_components.append(editable_line)
+        temp_layout.addWidget(editable_line)
         layout.addLayout(temp_layout)
 
         for i in range(4):                   # 4*edit line for adding choices
@@ -59,18 +61,27 @@ class MainWindow(QMainWindow):
             label = QLabel(f"{abcd[i]}")
             temp_layout.addWidget(label)
 
-            button = QLineEdit()
-            self.question_components.append(button)
-            temp_layout.addWidget(button)
+            editable_line = QLineEdit()
+            self.question_components.append(editable_line)
+            temp_layout.addWidget(editable_line)
             layout.addLayout(temp_layout)
 
         temp_layout = QHBoxLayout()
         label = QLabel("correct answer (a,b,c,d):")
         temp_layout.addWidget(label)
 
-        button = QLineEdit()
-        self.question_components.append(button)
-        temp_layout.addWidget(button)
+        editable_line = QLineEdit()
+        self.question_components.append(editable_line)
+        temp_layout.addWidget(editable_line)
+        layout.addLayout(temp_layout)
+
+        temp_layout = QHBoxLayout()
+        label = QLabel("explanation:")
+        temp_layout.addWidget(label)
+
+        editable_line = QLineEdit()
+        self.question_components.append(editable_line)
+        temp_layout.addWidget(editable_line)
         layout.addLayout(temp_layout)
 
         button = QPushButton("Submit the question")
@@ -89,6 +100,9 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(widget)
 
     def quiz_page(self):
+
+        self.file_name = ""
+
         layout = QVBoxLayout()
 
         button = QPushButton("Choose File")
@@ -107,13 +121,19 @@ class MainWindow(QMainWindow):
 
     def question_page(self):
 
+        self.change_information_label("", "", "")
+
         if not self.file_name:
-            logging.info("You need to specify file first!")
+            text = "You need to specify file first!"
+            logging.warning(text)
+            self.change_information_label(text, "red", "12")
             return 0
 
         layout = QVBoxLayout()
 
-        question = self.get_question()
+        self.get_question()
+
+        question = self.question
         options = question["options"]
         answer = question["answer"]
         question_text = question["question_text"]
@@ -127,12 +147,15 @@ class MainWindow(QMainWindow):
                 widget = QPushButton(f"{key}: {value}")
                 widget.pressed.connect(self.false_answer)
                 if key == answer:
-                    widget.pressed.connect(self.correct_answer)
+                     widget.pressed.connect(self.correct_answer)
                 layout.addWidget(widget)
 
-        self.information_label = QLabel("", self)
-
         layout.addWidget(self.information_label)
+
+
+        button = QPushButton(f"Show Explanation")
+        button.pressed.connect(self.explain)
+        layout.addWidget(button)
 
         button = QPushButton(f"Next")
         button.pressed.connect(self.question_page)
@@ -160,17 +183,16 @@ class MainWindow(QMainWindow):
         random_key = random.choice(list(self.questions.keys()))
         question = self.questions[random_key]
         del self.questions[random_key]
-        return question
+        self.question = question
 
     def submit_question(self):
         if not self.file_name:
-            self.information_label.setText("You need to choose a file for either add new questions or start the quiz")
+            self.change_information_label("You need to choose a file for either add new questions or start the quiz", "red", "12")
             return 0
 
         for component in self.question_components:
             if not component.text():
-                self.information_label.setText("You need to add all parts of the question!")
-                self.information_label.setStyleSheet("color: red; font: normal 12px;")
+                self.change_information_label("You need to add all parts of the question!", "red", "12")
                 return 0
 
         question_text = self.question_components[0].text()
@@ -182,12 +204,16 @@ class MainWindow(QMainWindow):
             options.append({abcd[i]: self.question_components[i + 1].text()})   # building 'a': 'answer_text'
 
         answer = self.question_components[5].text()
+        explanation = self.question_components[6].text()
 
         number_of_questions = len(self.questions)
 
-        self.question = {'question_text': question_text, 'options': options, 'answer': answer}
+        self.question = {'question_text': question_text, 'options': options, 'answer': answer, 'explanation': explanation}
         self.questions[str(number_of_questions)] = self.question
-        self.write_to_file()
+        self.write_to_file() # write file
+        self.information_label.setText("Submitted!")
+        self.information_label.setStyleSheet("color: green; font: bold 12px;")
+        self.question_adding_page() # re render adding page
 
     def load_file(self):
         file_name = self.file_name
@@ -208,15 +234,18 @@ class MainWindow(QMainWindow):
                 json.dump(self.questions, f)
 
     def correct_answer(self):
-        self.information_label.setText("Correct!")
-        self.information_label.setStyleSheet("color: green; font: bold 20px;")
+        self.change_information_label("Correct!", "green", "12")
 
     def false_answer(self):
-        self.information_label.setText("False!")
-        self.information_label.setStyleSheet("color: red; font: bold 20px;")
+        self.change_information_label("False!", "red", "12")
 
+    def change_information_label(self, text, color, size):
+        self.information_label.setText(text)
+        self.information_label.setStyleSheet(f"color: {color}; font: bold {size}px;")
 
-
+    def explain(self):
+        explanation = self.question["explanation"]
+        self.change_information_label(explanation, "black", "12")
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     w = MainWindow()
